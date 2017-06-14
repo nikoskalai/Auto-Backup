@@ -31,6 +31,7 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import org.apache.commons.io.FileUtils;
+
 /**
  *
  * @author Nikos
@@ -42,20 +43,21 @@ public class MainWindow extends javax.swing.JFrame {
     String title = "Auto Backup";
     String version = "1.0";
 
-    private int nItems = 0;
-    private ArrayList<Folder> list;
+    public int nItems = 0;
+    public static ArrayList<Folder> list;
     private DefaultTableModel model, model2;
     private int row, col;
-    private File backupFolder;
-    private File settingsFile;
+    public File backupFolder;
+    public File settingsFile;
     private final SimpleDateFormat sdf = new SimpleDateFormat("YYYY/MM/dd - HH:mm:ss");
+    private StatusWindow sw;
 
     /**
      * Creates new form MainWindow
      */
     public MainWindow() {
         initComponents();
-        initSettings();
+        new InitSettings().start();
     }
 
     /**
@@ -79,6 +81,8 @@ public class MainWindow extends javax.swing.JFrame {
         jScrollPane2 = new javax.swing.JScrollPane();
         backupFolderTable = new javax.swing.JTable();
         jLabel2 = new javax.swing.JLabel();
+        importButton = new javax.swing.JButton();
+        exportButton = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -172,6 +176,20 @@ public class MainWindow extends javax.swing.JFrame {
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel2.setText("Backup folder contents:");
 
+        importButton.setText("Import Configuration");
+        importButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                importButtonActionPerformed(evt);
+            }
+        });
+
+        exportButton.setText("Export Configuration");
+        exportButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                exportButtonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -184,15 +202,20 @@ public class MainWindow extends javax.swing.JFrame {
                     .addComponent(jScrollPane1, javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(backupFolderTF, javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addComponent(emptyCB)
-                        .addGap(6, 6, 6)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(emptyCB)
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(importButton)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(exportButton)))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                             .addGroup(layout.createSequentialGroup()
                                 .addComponent(removeButton)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(addButton))
                             .addGroup(layout.createSequentialGroup()
-                                .addComponent(jLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 320, Short.MAX_VALUE)
+                                .addComponent(jLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, 173, Short.MAX_VALUE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                                 .addComponent(selectBackupFolderButton)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -205,7 +228,9 @@ public class MainWindow extends javax.swing.JFrame {
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(addButton)
-                    .addComponent(removeButton))
+                    .addComponent(removeButton)
+                    .addComponent(importButton)
+                    .addComponent(exportButton))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 191, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -227,17 +252,25 @@ public class MainWindow extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void backupButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_backupButtonActionPerformed
-        if (backupFolder != null && model.getRowCount() > 0) {
-            backup();
-        } else {
-            if (backupFolder == null) {
-                JOptionPane.showMessageDialog(null, "Backup folder is not set. Please click 'Select Backup Folder' and try again.", "Warning!", JOptionPane.WARNING_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(null, "You must insert at least one file or folder to backup.", "Warning!", JOptionPane.WARNING_MESSAGE);
-            }
-        }
-        updateBackupTable();
+        new Backup().start();
     }//GEN-LAST:event_backupButtonActionPerformed
+
+    private class Backup extends Thread {
+
+        @Override
+        public void run() {
+            if (backupFolder != null && model.getRowCount() > 0) {
+                backup();
+            } else {
+                if (backupFolder == null) {
+                    JOptionPane.showMessageDialog(null, "Backup folder is not set. Please click 'Select Backup Folder' and try again.", "Warning!", JOptionPane.WARNING_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(null, "You must insert at least one file or folder to backup.", "Warning!", JOptionPane.WARNING_MESSAGE);
+                }
+            }
+            updateBackupTable();
+        }
+    }
 
     private void addButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addButtonActionPerformed
         addButtonAction();
@@ -256,18 +289,56 @@ public class MainWindow extends javax.swing.JFrame {
     }//GEN-LAST:event_selectBackupFolderButtonActionPerformed
 
     private void removeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeButtonActionPerformed
-        if(model.getRowCount() > 1){
-            int id = new Integer((String) model.getValueAt(row, 0));
-            for (Folder f : list) {
-                if (id == f.id) {
-                    list.remove(f);
-                }
-            }
-        } else {
-            list = new ArrayList();
-        }
-        updateTable();
+        new RemoveFile().start();
     }//GEN-LAST:event_removeButtonActionPerformed
+
+    private class RemoveFile extends Thread {
+
+        @Override
+        public void run() {
+            if (model.getRowCount() > 1) {
+                int id = new Integer((String) model.getValueAt(row, 0));
+                Folder folder = null;
+                for (Folder f : list) {
+                    if (id == f.id) {
+                        folder = f;
+                    }
+                }
+                if (folder != null) {
+                    list.remove(folder);
+                }
+            } else {
+                list = new ArrayList();
+            }
+            updateTable();
+        }
+    }
+    private void importButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_importButtonActionPerformed
+        JFileChooser fc = new JFileChooser();
+        fc.setCurrentDirectory(new File(System.getProperty("user.dir")));
+        fc.setName("Choose the .ini configuration file.");
+        fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        int returnVal = fc.showOpenDialog(null);
+        if (returnVal == JFileChooser.APPROVE_OPTION) {
+            settingsFile = fc.getSelectedFile();
+        }
+        importSettings();
+    }//GEN-LAST:event_importButtonActionPerformed
+
+    private void exportButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exportButtonActionPerformed
+        JFileChooser fc = new JFileChooser();
+        fc.setCurrentDirectory(new File(System.getProperty("user.dir")));
+        fc.setName("Enter a name for the .ini configuration file.");
+        fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        int returnVal = fc.showOpenDialog(null);
+        if (returnVal == JFileChooser.APPROVE_OPTION) {
+            settingsFile = fc.getSelectedFile();
+        }
+        if (!settingsFile.getName().endsWith(".ini")) {
+            settingsFile = new File(settingsFile.getPath() + ".ini");
+        }
+        saveSettings();
+    }//GEN-LAST:event_exportButtonActionPerformed
 
     public static void main(String args[]) {
         try {
@@ -295,10 +366,12 @@ public class MainWindow extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton addButton;
     private javax.swing.JButton backupButton;
-    private javax.swing.JTextField backupFolderTF;
+    public javax.swing.JTextField backupFolderTF;
     private javax.swing.JTable backupFolderTable;
     private javax.swing.JCheckBox emptyCB;
+    private javax.swing.JButton exportButton;
     private javax.swing.JTable folderTable;
+    private javax.swing.JButton importButton;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JScrollPane jScrollPane1;
@@ -307,55 +380,61 @@ public class MainWindow extends javax.swing.JFrame {
     private javax.swing.JButton selectBackupFolderButton;
     // End of variables declaration//GEN-END:variables
 
-    private void initSettings() {
-        setLocationRelativeTo(null);
-        setVisible(true);
-        setResizable(true);
-        model = (DefaultTableModel) folderTable.getModel();
-        list = new ArrayList();
-        nItems = 0;
-        folderTable.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                row = folderTable.rowAtPoint(evt.getPoint());
-                col = folderTable.columnAtPoint(evt.getPoint());
-            }
+    private class InitSettings extends Thread {
 
-            @Override
-            public void mousePressed(MouseEvent e) {
-                Point mousePoint = e.getPoint();
-                if (SwingUtilities.isLeftMouseButton(e)) {
-                    row = folderTable.rowAtPoint(mousePoint);
-                    col = folderTable.columnAtPoint(mousePoint);
-                } else if (SwingUtilities.isRightMouseButton(e)) {
-                    row = folderTable.rowAtPoint(mousePoint);
-                    col = folderTable.columnAtPoint(mousePoint);
-                    folderTable.changeSelection(row, col, false, false);
+        @Override
+        public void run() {
+            setLocationRelativeTo(null);
+            setVisible(true);
+            setResizable(true);
+            model = (DefaultTableModel) folderTable.getModel();
+            list = new ArrayList();
+            nItems = 0;
+            folderTable.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(java.awt.event.MouseEvent evt) {
+                    row = folderTable.rowAtPoint(evt.getPoint());
+                    col = folderTable.columnAtPoint(evt.getPoint());
                 }
-            }
-        });
-        model2 = (DefaultTableModel) backupFolderTable.getModel();
-        setTitle(title + " - " + version);
-        settingsFile = new File(System.getProperty("user.dir") + "\\" + title + ".ini");
-        backupFolderTable.setAutoCreateRowSorter(true);
-        folderTable.setAutoCreateRowSorter(true);
-        importSettings();
+
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    Point mousePoint = e.getPoint();
+                    if (SwingUtilities.isLeftMouseButton(e)) {
+                        row = folderTable.rowAtPoint(mousePoint);
+                        col = folderTable.columnAtPoint(mousePoint);
+                    } else if (SwingUtilities.isRightMouseButton(e)) {
+                        row = folderTable.rowAtPoint(mousePoint);
+                        col = folderTable.columnAtPoint(mousePoint);
+                        folderTable.changeSelection(row, col, false, false);
+                    }
+                }
+            });
+            model2 = (DefaultTableModel) backupFolderTable.getModel();
+            setTitle(title + " - " + version);
+            settingsFile = new File(System.getProperty("user.dir") + "\\" + title + ".ini");
+            backupFolderTable.setAutoCreateRowSorter(true);
+            folderTable.setAutoCreateRowSorter(true);
+
+            SettingsInitWindow siw = new SettingsInitWindow();
+            siw.run(MainWindow.this);
+        }
     }
 
-    private void updateTable() {
+    public void updateTable() {
         model.setRowCount(0);
         for (Folder f : list) {
             try {
                 BasicFileAttributes attr = Files.readAttributes(f.file.toPath(), BasicFileAttributes.class);
-                
+
                 Calendar created = Calendar.getInstance();
                 created.setTimeInMillis(attr.creationTime().toMillis());
                 Calendar modified = Calendar.getInstance();
                 modified.setTimeInMillis(attr.lastModifiedTime().toMillis());
-                
-                double size = FileUtils.sizeOf(f.file)/1024.0;
-                size = Math.round(size*100.0)/100.0;
-                Object[] obj = new Object[]{f.id + "", f.file.getName(), f.file.getPath(), size+"", sdf.format(created.getTime()), sdf.format(modified.getTime()), true};
+
+                double size = FileUtils.sizeOf(f.file) / 1024.0;
+                size = Math.round(size * 100.0) / 100.0;
+                Object[] obj = new Object[]{f.id + "", f.file.getName(), f.file.getPath(), size + "", sdf.format(created.getTime()), sdf.format(modified.getTime()), true};
                 model.addRow(obj);
             } catch (IOException ex) {
                 LOG.log(Level.SEVERE, null, ex);
@@ -364,19 +443,20 @@ public class MainWindow extends javax.swing.JFrame {
     }
 
     private void backup() {
-        saveSettings();
+        sw = new StatusWindow();
         if (emptyCB.isSelected()) {
             emptyBackupFolder();
         }
         try {
             for (Folder f : list) {
-                System.out.println(checkFileBackup(f));
-                if(checkFileBackup(f)){
+//                System.out.println(checkFileBackup(f));
+                if (checkFileBackup(f)) {
                     File destFile = new File(backupFolder + "\\" + f.file.getName() + "\\");
                     getSubfolders(f.file, destFile);
                 }
             }
-            JOptionPane.showMessageDialog(null, "Backup successful to folder:" + backupFolder.getPath(), "Backup Successful.", JOptionPane.INFORMATION_MESSAGE);
+            sw.statusArea.append("Backup successful to folder:" + backupFolder.getPath());
+            sw.statusArea.setCaretPosition(sw.statusArea.getText().length());
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(null, ex.getMessage(), "Error while backing up files.", JOptionPane.INFORMATION_MESSAGE);
         }
@@ -418,13 +498,14 @@ public class MainWindow extends javax.swing.JFrame {
 
         in.close();
         out.close();
-        System.out.println("File copied from " + file + " to " + backupFolder);
+//        System.out.println("File copied from " + file + " to " + backupFolder);
+        sw.statusArea.append("File copied from " + file + " to " + backupFolder + "\n");
+        sw.statusArea.setCaretPosition(sw.statusArea.getText().length());
     }
 
     private void saveSettings() {
         BufferedWriter bw = null;
         try {
-
             bw = new BufferedWriter(new FileWriter(settingsFile));
             bw.write("");
 
@@ -469,9 +550,9 @@ public class MainWindow extends javax.swing.JFrame {
 
     private void emptyBackupFolder() {
         for (File f : backupFolder.listFiles()) {
-            for(Folder fol: list){
-                if(fol.file.getName().equals(f.getName())){
-                    if(checkFileBackup(fol)){
+            for (Folder fol : list) {
+                if (fol.file.getName().equals(f.getName())) {
+                    if (checkFileBackup(fol)) {
                         getDirs(f);
                     }
                 }
@@ -480,7 +561,7 @@ public class MainWindow extends javax.swing.JFrame {
     }
 
     private void getDirs(File file) {
-        System.out.println(file.getPath());
+//        System.out.println(file.getPath());
         if (file.exists()) {
             if (file.isDirectory()) {
                 for (File f : file.listFiles()) {
@@ -504,13 +585,13 @@ public class MainWindow extends javax.swing.JFrame {
         }
         updateTable();
     }
-    
-    private void addFileToList(File file){
+
+    private void addFileToList(File file) {
         list.add(new Folder(nItems++, file));
     }
 
-    private void updateBackupTable() {
-        if(backupFolder != null){
+    public void updateBackupTable() {
+        if (backupFolder != null) {
             model2.setRowCount(0);
             for (File file : backupFolder.listFiles()) {
                 try {
@@ -519,10 +600,10 @@ public class MainWindow extends javax.swing.JFrame {
                     created.setTimeInMillis(attr.creationTime().toMillis());
                     Calendar modified = Calendar.getInstance();
                     modified.setTimeInMillis(attr.lastModifiedTime().toMillis());
-                
-                    double size = FileUtils.sizeOf(file)/1024.0;
-                    size = Math.round(size*100.0)/100.0;
-                    Object[] obj = new Object[]{file.getName(), file.getPath(), size+"", sdf.format(created.getTime()), sdf.format(modified.getTime())};
+
+                    double size = FileUtils.sizeOf(file) / 1024.0;
+                    size = Math.round(size * 100.0) / 100.0;
+                    Object[] obj = new Object[]{file.getName(), file.getPath(), size + "", sdf.format(created.getTime()), sdf.format(modified.getTime())};
                     model2.addRow(obj);
                 } catch (IOException ex) {
                     LOG.log(Level.SEVERE, null, ex);
@@ -532,10 +613,10 @@ public class MainWindow extends javax.swing.JFrame {
     }
 
     private boolean checkFileBackup(Folder f) {
-        System.out.println(f.file.getName());
-        for(int i = 0; i < model.getRowCount() ; i++){
+//        System.out.println(f.file.getName());
+        for (int i = 0; i < model.getRowCount(); i++) {
             int id = new Integer((String) model.getValueAt(i, 0));
-            if(id == f.id){
+            if (id == f.id) {
                 return (boolean) model.getValueAt(i, 6);
             }
         }
